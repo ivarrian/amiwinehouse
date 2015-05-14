@@ -1,0 +1,29 @@
+{
+  "name": "amiwinehouse",
+  "version": "1.0.0",
+  "description": "AWS AMI Manager",
+  "main": "amimgr",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ivarrian/amiwinehouse.git"
+  },
+  "keywords": [
+    "CloudFormation",
+    "AWS"
+  ],
+  "author": "Ravi Nair <ravi.nair@news.com.au> (http://graygoofactory.com)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ivarrian/amiwinehouse/issues"
+  },
+  "homepage": "https://github.com/ivarrian/amiwinehouse",
+  "dependencies": {
+    "aws-sdk": "^2.1.26",
+    "cli-table": "^0.3.1",
+    "prompt": "^0.2.14",
+    "yargs": "^3.8.0"
+  }
+}

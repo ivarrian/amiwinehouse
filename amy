@@ -1,0 +1,200 @@
+#!/usr/bin/env node
+
+'use strict';
+
+var aws = require('aws-sdk');
+var argv = require('yargs').argv;
+var Table = require('cli-table');
+var fs = require('fs');
+var prompt = require('prompt');
+
+if(argv.hasOwnProperty('profile'))
+	var profileToUse = argv.profile;
+else
+	var profileToUse = 'default';
+var credentials = new aws.SharedIniFileCredentials({profile: profileToUse});
+aws.config.credentials = credentials;
+
+if(argv.hasOwnProperty('region'))
+	var regionToUse = argv.region;
+else
+	var regionToUse = 'ap-southeast-2';
+var ec2 = new aws.EC2({region: regionToUse});
+
+var constructed=[];
+var table = new Table({
+    head: ['','Name','ImageId','State','Type','Creation Time']
+  , colWidths: [5,50,15,12,13,27]
+});
+
+// Prompt Schema for input prompt
+var deleteListSchema = {
+    properties: {
+      deleteList: {
+     	description: "Enter a comma-separated list of AMIs to deregister (Example : 1-4,6,7)",
+        required: true
+      }
+    }
+  };
+
+var confirmationSchema = {
+    properties: {
+      confirmation: {
+     	description: "Confirm deregister ? [yes/no]",
+        required: true
+      }
+    }
+  };
+
+function usage()
+{
+	console.log("Usage");
+	console.log("---------------------------------------------------------");
+	console.log(process.argv[1] + " [--action action] [--profile profileName] [--region awsRegion] [--filterByStatus status] [--pattern pattern] [--help]");
+	console.log("action: Action to perform ,currently supported : list , deregister");
+	console.log("profile: AWS profile to use, defaults to 'default' profile");
+	console.log("region: AWS region to use, defaults to 'ap-southeast-2'");
+	console.log("filterByStatus: Filter by AMI status, currently supported : available|pending|failed");
+	console.log("pattern: Matching pattern");
+	console.log("help: Display this usage message");
+}
+var foundAMIs = [];
+function findAMIs(params,callback){
+	(function(params,foundAMIs,callback) {
+          ec2.describeImages(params,function(err,res){
+		if(err){
+			console.log(err);
+			callback(err);
+		}
+		else {
+			if(typeof res.Images !== 'undefined'){
+				for(var i=0;i<res.Images.length;i++){
+					if(argv.hasOwnProperty('pattern')){
+					if(res.Images[i].Name.match(argv.pattern) !== null){
+							foundAMIs.push(res.Images[i]);
+						}
+					}
+					else{
+						foundAMIs.push(res.Images[i]);
+					}
+				}	
+			}
+			if(typeof res.NextToken !== 'undefined'){
+				params.NextToken = res.NextToken;
+				findAMIs(params,callback);
+			}
+			else{
+				callback(null);
+			}
+		}
+		});
+     })(params,foundAMIs,callback);
+}
+
+if(argv.hasOwnProperty('help')){
+	usage();
+	process.exit(0);
+}
+
+if(!argv.hasOwnProperty('action')){
+	argv.action = 'list';
+}
+
+
+
+var params = {
+	Filters : [
+		{
+			Name: 'is-public',
+			Values : ['false']
+		}
+	]
+};
+
+if(argv.hasOwnProperty('filterByStatus')){
+	params.Filters.push ({Name:'state',Values:[argv.filterByStatus]});
+}
+
+findAMIs(params,function(err){
+	if(err){
+		console.log(err);
+	}
+	else{
+		var numCounter =0;
+		if(foundAMIs.length < 1){
+			console.log("No AMI found.");
+			process.exit(1);
+		}
+		console.log("Number of AMIs found : "+foundAMIs.length);
+			for(var i=0;i<foundAMIs.length;i++){
+				table.push([++numCounter,foundAMIs[i].Name,foundAMIs[i].ImageId,foundAMIs[i].State,foundAMIs[i].VirtualizationType,foundAMIs[i].CreationDate]);
+			}
+		console.log(table.toString());
+		switch(argv.action){
+				case 'list':
+					process.exit(0);
+					break;
+				case 'deregister':
+					var deleteIndex = [];
+					prompt.start();
+					prompt.message = "";
+					prompt.delimiter="";
+				 	prompt.get(deleteListSchema, function (err, result) {
+					    if (err) { return onErr(err); }
+					    var deleteList = result.deleteList.split(",");
+					    for(var i=0; i<deleteList.length;i++)
+					    {
+					    	var subList = deleteList[i].split("-");
+					    	var startCount = subList[0];
+					    	var endCount;
+					    	if(subList.length > 1){
+					    		endCount = parseInt(subList[1]);
+					    	}
+					    	else {
+					    		endCount = parseInt(subList[0]);
+					    	}
+					    	for(var j=startCount;j<=endCount;j++){
+					    		if(j<=0 || j>foundAMIs.length){
+					    			console.log("Invalid input..");
+					    			process.exit(1);
+					    		}
+					    		deleteIndex.push(j);
+					    	}
+					    }
+					    console.log("Will deregister the following AMIs...");
+					    console.log("------------------------------------");
+					    for(var i=0;i<deleteIndex[i];i++){
+					    	console.log(table[deleteIndex[i]-1][1]);
+					    }
+					    console.log("------------------------------------");
+					    prompt.get(confirmationSchema, function (err, result) {
+					    	if(err) {return onErr(err); }
+					    	switch(result.confirmation){
+					    		case 'yes':
+					    			for(var i=0; i< deleteIndex[i];i++){
+					    				var params = {
+  											ImageId: table[deleteIndex[i]-1][2]
+										};
+										(function(params) {
+										ec2.deregisterImage(params,function(err,data){
+											if(err){
+												console.log("Error deregistering "+params.ImageId);
+											}
+											else {
+												console.log("Deregistered "+params.ImageId+" ...");
+											}
+										})})(params);
+					    			}
+					    			break;
+					    		case 'no':
+					    			process.exit(0);
+					    			break;
+					    	}
+					    });
+				  	});
+
+					break;
+
+		}
+	}
+});
