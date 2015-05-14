@@ -21,7 +21,7 @@ AMI Manager (to view / deregister Private AWS AMIs)
 #Example usage
 
     amy --pattern foo-bar- --filterByState available --action deregister
-The above command will list all private AMIs with "foo-bar-" in their names and with state 'available' and will request input for deregistration
+The above command will list all private AMIs with "foo-bar-" in their names in state 'available' and will request input for deregistration
 
 # Bugs
 
