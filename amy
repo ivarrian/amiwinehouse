@@ -50,11 +50,11 @@ function usage()
 {
 	console.log("Usage");
 	console.log("---------------------------------------------------------");
-	console.log(process.argv[1] + " [--action action] [--profile profileName] [--region awsRegion] [--filterByStatus status] [--pattern pattern] [--help]");
+	console.log(process.argv[1] + " [--action action] [--profile profileName] [--region awsRegion] [--filterByState status] [--pattern pattern] [--help]");
 	console.log("action: Action to perform ,currently supported : list , deregister");
 	console.log("profile: AWS profile to use, defaults to 'default' profile");
 	console.log("region: AWS region to use, defaults to 'ap-southeast-2'");
-	console.log("filterByStatus: Filter by AMI status, currently supported : available|pending|failed");
+	console.log("filterByState: Filter by AMI state, currently supported : available|pending|failed");
 	console.log("pattern: Matching pattern");
 	console.log("help: Display this usage message");
 }
@@ -111,8 +111,8 @@ var params = {
 	]
 };
 
-if(argv.hasOwnProperty('filterByStatus')){
-	params.Filters.push ({Name:'state',Values:[argv.filterByStatus]});
+if(argv.hasOwnProperty('filterByState')){
+	params.Filters.push ({Name:'state',Values:[argv.filterByState]});
 }
 
 findAMIs(params,function(err){
